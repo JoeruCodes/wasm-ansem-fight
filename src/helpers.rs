@@ -1,6 +1,8 @@
 use rand::Rng;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlImageElement;
+
+use crate::Game;
 pub fn document_get_element_by_id() -> HtmlImageElement
 {
     let window = web_sys::window().expect("global window does not exists");    

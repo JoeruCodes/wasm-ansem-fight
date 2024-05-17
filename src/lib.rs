@@ -108,13 +108,12 @@ impl Game{
     }
     pub fn flip_frame(&self, bool: bool){
         web_sys::console::log_1(&JsValue::from_str("Setting flip className"));
-        self.image_ref.set_class_name({
-            if bool{
-                "scale-x-[-1]"
-            }else{
-                ""
-            }
-        });
+        let s = self.image_ref.style();
+        if bool{
+            s.set_property("transform", "scaleX(-1)").expect("should set transform to scaleX(-1)");
+        }else{
+            s.set_property("transform", "scaleX(1)").expect("should set transform to scaleX(1)");
+        }
     }
     pub fn cleanup(&mut self) {
         web_sys::console::log_1(&JsValue::from_str("Cleanup started"));
@@ -161,16 +160,19 @@ impl Game{
             //TODO: FIX FLIP IMAGES FOR KOOK
 
 
-            // web_sys::console::log_1(&JsValue::from_str("Flipping frames"));
-            // if self.render_buf[i] == IMAGE_SETS.cook_t3[1] || self.render_buf[i] == IMAGE_SETS.result_cook[2] {
-            //     self.flip_frame(false);
-            // } else if self.render_buf[i] == IMAGE_SETS.ansem_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.ansem_dodge_2[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_2[1] {
-            //     self.flip_frame(false);
-            // } else if let Characters::COOK = self.player {
-            //     self.flip_frame(true);
-            // }
+            web_sys::console::log_1(&JsValue::from_str("Flipping frames"));
+            if self.render_buf[i] == IMAGE_SETS.cook_t3[1] || self.render_buf[i] == IMAGE_SETS.result_cook[1] {
+                web_sys::console::log_1(&JsValue::from_str("T3 cook frame flip"));
+                self.flip_frame(false);
+            } else if self.render_buf[i] == IMAGE_SETS.ansem_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.ansem_dodge_2[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_2[1] {
+                web_sys::console::log_1(&JsValue::from_str("T3 dodge frame flip"));
+                self.flip_frame(false);
+            } else if  self.player == Characters::COOK {
+                web_sys::console::log_1(&JsValue::from_str("reset cook"));
+                self.flip_frame(true);
+            }
 
-            
+
             if self.image_ref.src() != self.render_buf[i] {
                 self.set_frame(&self.render_buf[i]);
             }
