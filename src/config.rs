@@ -83,6 +83,7 @@ const winImage_cook :&str = "win_cook.png";
 const cook_t3_pwrup :&str = "t33_rev.png";
 const t3_cook_win :&str = "t3_cook_win.png";
 const dodge :&str = "dodge.mp3";
+pub const FRAMES_TO_NOT_REV:[&str; 7] = [ansem, cook_dodge_1, cook_dodge_2, cook_t3_pwrup, t3_cook_win, ansem_dodge_1, ansem_dodge_2];
 // Define data
 pub const IMAGE_SETS: ImageSets = ImageSets {
     ansem_t1: [ansemPunch, t1ansemPunch],
@@ -127,9 +128,9 @@ pub const SOUNDS: Sounds = Sounds {
 };
 
 pub const DODGE_PROBS: DodgeProbs = DodgeProbs {
-    t1: 0.4,
-    t2: 0.3,
-    t3: 0.2,
+    t1: 0.3,
+    t2: 0.2,
+    t3: 0.1,
 };
 
 pub const PUNCHES_CONFIG: [PunchesConfig; 3] = [

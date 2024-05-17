@@ -4,7 +4,7 @@ mod helpers;
 
 use std::time::Duration;
 
-use config::{Characters, PunchTiers, DODGE_PROBS, IMAGE_SETS, PLAY_DODGE_SOUND_AT, PLAY_PUNCH_SOUNDS_AT, PLAY_PWRUP_SOUND_AT, SOUNDS, WIN_PUNCHES};
+use config::{Characters, PunchTiers, DODGE_PROBS, FRAMES_TO_NOT_REV, IMAGE_SETS, PLAY_DODGE_SOUND_AT, PLAY_PUNCH_SOUNDS_AT, PLAY_PWRUP_SOUND_AT, SOUNDS, WIN_PUNCHES};
 use ::futures::channel::oneshot;
 use helpers::play_sound;
 use tokio_with_wasm::tokio::time::sleep;
@@ -87,7 +87,7 @@ impl Game{
                 match &self.tier{
                     PunchTiers::T1 => DODGE_PROBS.t1,
                     PunchTiers::T2 => DODGE_PROBS.t2,
-                    PunchTiers::T3 => DODGE_PROBS.t2,
+                    PunchTiers::T3 => DODGE_PROBS.t3,
                 }
             };
             if dodges{
@@ -126,10 +126,11 @@ impl Game{
         self.image_ref.set_src(&format!("{}/{}", "/src/assets", path));
     }
     pub fn flip_frame(&self, bool: bool){
+        let s = self.image_ref.style();
         if bool{
-            self.image_ref.set_class_name("scale-x-[-1]")
+            s.set_property("transform", "scaleX(-1)").expect("should set transform to scaleX(-1)");
         }else{
-            self.image_ref.set_class_name("");
+            s.set_property("transform", "scaleX(1)").expect("should set transform to scaleX(1)");
         }
     }
     pub async fn cleanup(&mut self) {
@@ -144,7 +145,9 @@ impl Game{
                     self.set_frame(IMAGE_SETS.result_cook[1]);
                 }
             }
-            play_sound(&SOUNDS.punch).await;
+            if self.tier != PunchTiers::T3{
+                play_sound(&SOUNDS.punch).await;
+            }
             play_sound(&SOUNDS.win).await;
         }else{
             match &self.player{
@@ -168,15 +171,11 @@ impl Game{
     pub async fn render_sequence(&mut self) {
         for i in 0..self.render_buf.len() {
 
-//========= TODO: FIX FLIP IMAGES FOR KOOK =========================================================================
-            if self.render_buf[i] == IMAGE_SETS.cook_t3[1] || self.render_buf[i] == IMAGE_SETS.result_cook[1] {
+            if FRAMES_TO_NOT_REV.contains(&self.render_buf[i].as_str()){
                 self.flip_frame(false);
-            } else if self.render_buf[i] == IMAGE_SETS.ansem_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.ansem_dodge_2[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_2[1] {
-                self.flip_frame(false);
-            } else if self.player == Characters::COOK {
+            }else if let Characters::COOK = self.player{
                 self.flip_frame(true);
             }
-// ==================================================================================================================
 
             if self.image_ref.src() != self.render_buf[i] {
                 self.set_frame(&self.render_buf[i]);
@@ -208,12 +207,9 @@ impl Game{
             panic!("Invalid input parameters");
         }
         let mut game = Game::new(player, wif);
-        if game.player == Characters::COOK{
-            game.flip_frame(true);
-        }
         for i in 0..game.npunches {
-            if game.tier ==PunchTiers::T3 && i==game.npunches - 1{
-                game.render_buf = game.render_buf.to_owned();
+            if game.tier ==PunchTiers::T3 && i == game.npunches - 1{
+                game.render_buf = game.temp_render_buf.to_owned();
                 game.temp_render_buf.clear();
             }
             if game.render_buf != IMAGE_SETS.cook_dodge_1 && 
@@ -226,7 +222,6 @@ impl Game{
             }
             game.render_sequence().await;
         }
-        
         game.cleanup().await;
 
         //ret is not needed do direct DOM manipulation TODO: get rid of this
