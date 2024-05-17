@@ -271,11 +271,11 @@ impl Game {
                 game.temp_render_buf.clear();
             }
             if game.render_buf != IMAGE_SETS.cook_dodge_1
-                && game.render_buf != IMAGE_SETS.cook_dodge_2
-                && game.render_buf != IMAGE_SETS.ansem_dodge_1
-                && game.render_buf != IMAGE_SETS.ansem_dodge_2
-                && game.render_buf != IMAGE_SETS.ansem_t3
-                && game.render_buf != IMAGE_SETS.cook_t3
+                || game.render_buf != IMAGE_SETS.cook_dodge_2
+                || game.render_buf != IMAGE_SETS.ansem_dodge_1
+                || game.render_buf != IMAGE_SETS.ansem_dodge_2
+                || game.render_buf != IMAGE_SETS.ansem_t3
+                || game.render_buf != IMAGE_SETS.cook_t3
             {
                 game.randomize_punch_sequences();
             }
