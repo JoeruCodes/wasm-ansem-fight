@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use config::{Characters, PunchTiers, DODGE_PROBS, IMAGE_SETS, PLAY_DODGE_SOUND_AT, PLAY_PUNCH_SOUNDS_AT, PLAY_PWRUP_SOUND_AT, SOUNDS, WIN_PUNCHES};
 use ::futures::channel::oneshot;
+use helpers::play_sound;
 use tokio_with_wasm::tokio::time::sleep;
 use wasm_bindgen::prelude::*;
 use rand::Rng;
@@ -22,7 +23,6 @@ pub struct Game{
     render_buf: Vec<String>,
     temp_render_buf: Vec<String>,
     image_ref: web_sys::HtmlImageElement,
-    audio: AudioOps
 }
 
 impl Game{
@@ -78,7 +78,6 @@ impl Game{
                 }
             },
             image_ref: document_get_element_by_id(),
-            audio: AudioOps::new(),
         }
     }
 
@@ -145,11 +144,8 @@ impl Game{
                     self.set_frame(IMAGE_SETS.result_cook[1]);
                 }
             }
-
-            if !(self.tier == PunchTiers::T3){
-                self.audio.play_sound(&SOUNDS.punch).await;
-            }
-            self.audio.play_sound(&SOUNDS.win).await;
+            play_sound(&SOUNDS.punch).await;
+            play_sound(&SOUNDS.win).await;
         }else{
             match &self.player{
                 Characters::ANSEM => {
@@ -159,16 +155,13 @@ impl Game{
                     self.set_frame(IMAGE_SETS.result_cook[0]);
                 }
             }
-            self.audio.play_sound(&SOUNDS.lose).await;
+            play_sound(&SOUNDS.punch).await;
+            play_sound(&SOUNDS.lose).await;
         }
-        sleep(Duration::from_millis(100)).await;
+        sleep(Duration::from_millis(50)).await;
         self.set_frame(IMAGE_SETS.default[0]);
         if !self.render_buf.is_empty() {
             self.render_buf.clear();
-        }
-        match self.audio.audio_context.close() {
-            Ok(_) => web_sys::console::log_1(&JsValue::from_str("Audio context closed successfully")),
-            Err(e) => web_sys::console::log_1(&JsValue::from_str(&format!("Error closing audio context: {:?}", e))),
         }
     }
 
@@ -190,11 +183,11 @@ impl Game{
             }
 
             if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i].as_str()){
-                self.audio.play_sound(&SOUNDS.punch).await
+                play_sound(&SOUNDS.punch).await
             }else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i].as_str()){
-                self.audio.play_sound(&SOUNDS.dodge).await
+                play_sound(&SOUNDS.dodge).await
             }else if PLAY_PWRUP_SOUND_AT.contains(&self.render_buf[i].as_str()){
-                self.audio.play_sound(&SOUNDS.tier3).await
+                play_sound(&SOUNDS.tier3).await
             }
 
             sleep(Duration::from_millis(200)).await;
@@ -220,7 +213,8 @@ impl Game{
         }
         for i in 0..game.npunches {
             if game.tier ==PunchTiers::T3 && i==game.npunches - 1{
-                game.render_buf.swap_with_slice(&mut game.temp_render_buf);   
+                game.render_buf = game.render_buf.to_owned();
+                game.temp_render_buf.clear();
             }
             if game.render_buf != IMAGE_SETS.cook_dodge_1 && 
                game.render_buf != IMAGE_SETS.cook_dodge_2 && 
@@ -239,41 +233,5 @@ impl Game{
         Ret{npunches: game.npunches, wif}
     }
 
-}
-#[derive(Clone)]
-#[wasm_bindgen]
-pub struct AudioOps {
-    audio_context: AudioContext,
-}
-
-impl AudioOps {
-    pub fn new() -> AudioOps {
-        AudioOps {
-            audio_context: AudioContext::new().unwrap(),
-        }
-    }
-
-    pub async fn play_sound(&self, path: &str) {
-        let audio_element = HtmlAudioElement::new().unwrap();
-        let n_p = format!("{}/{}", "/src/assets", path);
-        audio_element.set_src(&n_p);
-        let play_promise = JsFuture::from(audio_element.play().unwrap());
-        let _ = play_promise.await;
-        let (tx, rx) = oneshot::channel();
-        let tx = std::rc::Rc::new(std::cell::RefCell::new(Some(tx)));
-
-        let closure = Closure::wrap(Box::new(move |_event: Event| {
-            if let Some(tx) = tx.borrow_mut().take() {
-                let _ = tx.send(());
-            }
-        }) as Box<dyn FnMut(_)>);
-
-        audio_element.set_onended(Some(closure.as_ref().unchecked_ref()));
-        closure.forget();
-
-        let _ = rx.await;
-        audio_element.set_onended(None);
-        audio_element.set_src("");
-    }
 }
 
