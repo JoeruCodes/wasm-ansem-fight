@@ -58,49 +58,72 @@ pub struct PunchesConfig {
 // Define constants
 pub const SPEED: usize = 2;
 pub const WIN_PUNCHES: usize = 13;
-#[derive(PartialEq)]
-pub enum PunchTiers{
-    T1,
-    T2,
-    T3
-}
+const ansem :&str = "../assets/start.png";
+const ansemPunch :&str = "../assets/idlee.png";
+const t1ansemPunch :&str = "../assets/T1-Ansem-Punch2.png";
+const t2ansemPunch :&str = "../assets/Tier_22.png";
+const t3ansemPunch :&str = "../assets/t33.png";
+const upansemPunch :&str = "../assets/uppercut.png";
+const winImage :&str = "../assets/win.png";
+const loseImage :&str = "../assets/lose.png";
+const punchSound :&str = "../assets/punch1.m4a";
+const winSound :&str = "../assets/win.m4a";
+const loseSound :&str = "../assets/lose.m4a";
+const bellSound :&str = "../assets/bell.m4a";
+const t3Sound :&str = "../assets/tier3powerup1.m4a";
+const bgSound :&str = "../assets/background.mp3";
+const opponent_t1 :&str = "../assets/cook_punch_t1.png";
+const opponent_t2 :&str = "../assets/cook_punch_t2.png";
+const cook_dodge_1 :&str = "../assets/dodge_1_rev.png";
+const cook_dodge_2 :&str = "../assets/dodge_2_rev.png";
+const ansem_dodge_1 :&str = "../assets/dodge_1.png";
+const ansem_dodge_2 :&str = "../assets/dodge_2.png";
+const loseImage_cook :&str = "../assets/lose_cook.png";
+const winImage_cook :&str = "../assets/win_cook.png";
+const cook_t3_pwrup :&str = "../assets/t33_rev.png";
+const t3_cook_win :&str = "../assets/t3_cook_win.png";
+const dodge :&str = "../assets/dodge.mp3";
 // Define data
 pub const IMAGE_SETS: ImageSets = ImageSets {
-    ansem_t1: ["../assets/ansemPunch", "../assets/t1ansemPunch"],
-    ansem_t2: ["../assets/ansemPunch", "../assets/t1ansemPunch", "../assets/t2ansemPunch"],
-    ansem_t3: ["../assets/ansemPunch", "../assets/t3ansemPunch", "../assets/upansemPunch"],
-    cook_t1: ["../assets/ansemPunch", "../assets/opponent_t1"],
-    cook_t2: ["../assets/ansemPunch", "../assets/opponent_t1", "../assets/opponent_t2"],
-    cook_t3: ["../assets/ansemPunch", "../assets/cook_t3_pwrup", "../assets/t3_cook_win"],
+    ansem_t1: [ansemPunch, t1ansemPunch],
+    ansem_t2: [ansemPunch, t1ansemPunch, t2ansemPunch],
+    ansem_t3: [ansemPunch, t3ansemPunch, upansemPunch],
+    cook_t1: [ansemPunch, opponent_t1],
+    cook_t2: [ansemPunch, opponent_t1, opponent_t2],
+    cook_t3: [ansemPunch, cook_t3_pwrup, t3_cook_win],
     cook_dodge_1: [
-        "../assets/ansemPunch",
-        "../assets/cook_dodge_1", "../assets/t1ansemPunch",
+      ansemPunch,
+      cook_dodge_1,
+      t1ansemPunch,
     ],
     cook_dodge_2: [
-        "../assets/ansemPunch",
-        "../assets/cook_dodge_2", "../assets/t2ansemPunch",
+      ansemPunch,
+      cook_dodge_2,
+      t2ansemPunch,
     ],
     ansem_dodge_1: [
-        "../assets/ansemPunch",
-        "../assets/ansem_dodge_1", "../assets/opponent_t1",
+      ansemPunch,
+      ansem_dodge_1,
+      opponent_t1,
     ],
     ansem_dodge_2: [
-        "../assets/ansemPunch",
-        "../assets/ansem_dodge_2", "../assets/opponent_t2",
+      ansemPunch,
+      ansem_dodge_2,
+      opponent_t2,
     ],
-    default: ["../assets/ansem", "../assets/ansemPunch", "../assets/t1ansemPunch"],
-    result_ansem: ["../assets/loseImage", "../assets/winImage"],
-    result_cook: ["../assets/loseImage_cook", "../assets/t3_cook_win"],
+    default: [ansem, ansemPunch, t1ansemPunch],
+    result_ansem: [loseImage, winImage],
+    result_cook: [loseImage_cook, t3_cook_win],
 };
 
 pub const SOUNDS: Sounds = Sounds {
-    punch: "../assets/punchSound",
-    win: "../assets/winSound",
-    lose: "../assets/loseSound",
-    bell: "../assets/bellSound",
-    tier3: "../assets/t3Sound",
-    dodge: "../assets/dodge",
-    background: "../assets/bgSound",
+    punch: &punchSound,
+    win: &winSound,
+    lose: &loseSound,
+    bell: &bellSound,
+    tier3: &t3Sound,
+    dodge: &dodge,
+    background: &bgSound,
 };
 
 pub const DODGE_PROBS: DodgeProbs = DodgeProbs {
@@ -129,9 +152,18 @@ pub const PUNCHES_CONFIG: [PunchesConfig; 3] = [
         image_arr_p2: &IMAGE_SETS.cook_t3,
     },
 ];
+pub const PLAY_PUNCH_SOUNDS_AT:[&str; 6] = [t1ansemPunch, t2ansemPunch, upansemPunch, opponent_t1, opponent_t2, t3_cook_win]; 
+pub const PLAY_DODGE_SOUND_AT:[&str; 4] = [cook_dodge_1, cook_dodge_2, ansem_dodge_1, ansem_dodge_2];
+pub const PLAY_PWRUP_SOUND_AT:[&str;2] = [t3ansemPunch, cook_t3_pwrup];
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum Characters{
+pub enum Characters {
     ANSEM,
-    COOK
+    COOK,
+}
+#[derive(Clone, Copy, PartialEq)]
+pub enum PunchTiers {
+    T1,
+    T2,
+    T3,
 }
