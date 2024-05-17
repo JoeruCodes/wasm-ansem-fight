@@ -20,6 +20,7 @@ pub struct Game{
     doges: usize,
     lpunches: usize,
     render_buf: Vec<String>,
+    temp_render_buf: Vec<String>,
     image_ref: web_sys::HtmlImageElement,
     audio: AudioOps
 }
@@ -53,9 +54,28 @@ impl Game{
             npunches: generate_punches(&punch_config.min_punches, &punch_config.max_punches),
             doges: 0,
             lpunches: 0,
-            render_buf: match player_e {
-                Characters::ANSEM => punch_config.image_arr_p1.into_iter().map(|x| x.to_string()).collect(),
-                Characters::COOK => punch_config.image_arr_p2.into_iter().map(|x| x.to_string()).collect(),
+            render_buf: {
+                if let PunchTiers::T3 = tier{
+                    match player_e{
+                        Characters::ANSEM => PUNCHES_CONFIG[1].image_arr_p1.into_iter().map(|x| x.to_string()).collect(),
+                        Characters::COOK => PUNCHES_CONFIG[1].image_arr_p2.into_iter().map(|x| x.to_string()).collect()
+                    }
+                }else{
+                    match player_e{
+                        Characters::ANSEM => punch_config.image_arr_p1.into_iter().map(|x| x.to_string()).collect(),
+                        Characters::COOK => punch_config.image_arr_p2.into_iter().map(|x| x.to_string()).collect()
+                    }
+                }
+            },
+            temp_render_buf: {
+                if let PunchTiers::T3 = tier{
+                    match player_e{
+                        Characters::ANSEM => punch_config.image_arr_p1.into_iter().map(|x| x.to_string()).collect(),
+                        Characters::COOK => punch_config.image_arr_p2.into_iter().map(|x| x.to_string()).collect()
+                    }
+                }else{
+                    vec![]
+                }
             },
             image_ref: document_get_element_by_id(),
             audio: AudioOps::new(),
@@ -107,76 +127,67 @@ impl Game{
         self.image_ref.set_src(&format!("{}/{}", "/src/assets", path));
     }
     pub fn flip_frame(&self, bool: bool){
-        web_sys::console::log_1(&JsValue::from_str("Setting flip className"));
-        let s = self.image_ref.style();
         if bool{
-            s.set_property("transform", "scaleX(-1)").expect("should set transform to scaleX(-1)");
+            self.image_ref.set_class_name("scale-x-[-1]")
         }else{
-            s.set_property("transform", "scaleX(1)").expect("should set transform to scaleX(1)");
+            self.image_ref.set_class_name("");
         }
     }
-    pub fn cleanup(&mut self) {
-        web_sys::console::log_1(&JsValue::from_str("Cleanup started"));
-
-        web_sys::console::log_1(&JsValue::from_str("Setting to win or lose frame"));
-        self.set_frame({
-            if self.npunches > WIN_PUNCHES{
-                match &self.player{
-                    Characters::ANSEM => IMAGE_SETS.result_ansem[1],
-                    Characters::COOK => IMAGE_SETS.result_cook[1]
-                }
-            }else{
-                match &self.player{
-                    Characters::ANSEM => IMAGE_SETS.result_ansem[0],
-                    Characters::COOK => IMAGE_SETS.result_cook[0]
+    pub async fn cleanup(&mut self) {
+        self.flip_frame(false);
+        let winlose = self.npunches > WIN_PUNCHES;
+        if winlose {
+            match &self.player{
+                Characters::ANSEM => {
+                    self.set_frame(IMAGE_SETS.result_ansem[1]);
+                },
+                Characters::COOK => {
+                    self.set_frame(IMAGE_SETS.result_cook[1]);
                 }
             }
-        });
-        web_sys::console::log_1(&JsValue::from_str("Setting to default frame"));
-        self.set_frame(IMAGE_SETS.default[0]);
-        // Clear punch sequences
-        if !self.render_buf.is_empty() {
-            web_sys::console::log_1(&JsValue::from_str("Clearing punch sequences"));
-            self.render_buf.clear();
-        } else {
-            web_sys::console::log_1(&JsValue::from_str("No punch sequences to clear"));
-        }
 
-        // Reset audio
-        web_sys::console::log_1(&JsValue::from_str("Resetting audio"));
+            if !(self.tier == PunchTiers::T3){
+                self.audio.play_sound(&SOUNDS.punch).await;
+            }
+            self.audio.play_sound(&SOUNDS.win).await;
+        }else{
+            match &self.player{
+                Characters::ANSEM => {
+                    self.set_frame(IMAGE_SETS.result_ansem[0]);
+                },
+                Characters::COOK => {
+                    self.set_frame(IMAGE_SETS.result_cook[0]);
+                }
+            }
+            self.audio.play_sound(&SOUNDS.lose).await;
+        }
+        sleep(Duration::from_millis(100)).await;
+        self.set_frame(IMAGE_SETS.default[0]);
+        if !self.render_buf.is_empty() {
+            self.render_buf.clear();
+        }
         match self.audio.audio_context.close() {
             Ok(_) => web_sys::console::log_1(&JsValue::from_str("Audio context closed successfully")),
             Err(e) => web_sys::console::log_1(&JsValue::from_str(&format!("Error closing audio context: {:?}", e))),
         }
-
-        web_sys::console::log_1(&JsValue::from_str("Cleanup finished"));
     }
 
     pub async fn render_sequence(&mut self) {
-        web_sys::console::log_1(&JsValue::from_str("Starting render_sequence"));
         for i in 0..self.render_buf.len() {
-            web_sys::console::log_1(&JsValue::from_str(&format!("Rendering frame: {}", self.render_buf[i])));
 
-            //TODO: FIX FLIP IMAGES FOR KOOK
-
-
-            web_sys::console::log_1(&JsValue::from_str("Flipping frames"));
+//========= TODO: FIX FLIP IMAGES FOR KOOK =========================================================================
             if self.render_buf[i] == IMAGE_SETS.cook_t3[1] || self.render_buf[i] == IMAGE_SETS.result_cook[1] {
-                web_sys::console::log_1(&JsValue::from_str("T3 cook frame flip"));
                 self.flip_frame(false);
             } else if self.render_buf[i] == IMAGE_SETS.ansem_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.ansem_dodge_2[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_1[1] || self.render_buf[i] == IMAGE_SETS.cook_dodge_2[1] {
-                web_sys::console::log_1(&JsValue::from_str("T3 dodge frame flip"));
                 self.flip_frame(false);
-            } else if  self.player == Characters::COOK {
-                web_sys::console::log_1(&JsValue::from_str("reset cook"));
+            } else if self.player == Characters::COOK {
                 self.flip_frame(true);
             }
-
+// ==================================================================================================================
 
             if self.image_ref.src() != self.render_buf[i] {
                 self.set_frame(&self.render_buf[i]);
             }
-            web_sys::console::log_1(&JsValue::from_str("playing sounds"));
 
             if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i].as_str()){
                 self.audio.play_sound(&SOUNDS.punch).await
@@ -186,10 +197,8 @@ impl Game{
                 self.audio.play_sound(&SOUNDS.tier3).await
             }
 
-            web_sys::console::log_1(&JsValue::from_str("Sound played and finished"));
-            sleep(Duration::from_millis(300)).await;
+            sleep(Duration::from_millis(200)).await;
         }
-        web_sys::console::log_1(&JsValue::from_str("Finished render_sequence"));
     }
     
     
@@ -202,26 +211,17 @@ pub struct Ret{
 #[wasm_bindgen]
 impl Game{
     pub async fn render(player: &str, wif: f64) -> Ret {
-        // Validate inputs
         if player.is_empty() || wif <= 0.0 {
-            web_sys::console::log_1(&JsValue::from_str("Invalid input parameters"));
             panic!("Invalid input parameters");
         }
-        
-        // Log the inputs
-        web_sys::console::log_1(&JsValue::from_str(&format!("Rendering game with player: {}, wif: {}", player, wif)));
-        
-        // Try to create a new game
         let mut game = Game::new(player, wif);
-        web_sys::console::log_1(&JsValue::from_str("Game instance created successfully"));
-        
-        // Log initial state
-        web_sys::console::log_1(&JsValue::from_str(&format!("Initial punches: {}", game.npunches)));
-        
+        if game.player == Characters::COOK{
+            game.flip_frame(true);
+        }
         for i in 0..game.npunches {
-            // Log the state before randomize_punch_sequences
-            web_sys::console::log_1(&JsValue::from_str(&format!("Randomizing punch sequences, iteration: {}", i)));
-            
+            if game.tier ==PunchTiers::T3 && i==game.npunches - 1{
+                game.render_buf.swap_with_slice(&mut game.temp_render_buf);   
+            }
             if game.render_buf != IMAGE_SETS.cook_dodge_1 && 
                game.render_buf != IMAGE_SETS.cook_dodge_2 && 
                game.render_buf != IMAGE_SETS.ansem_dodge_1 && 
@@ -233,11 +233,10 @@ impl Game{
             game.render_sequence().await;
         }
         
-        // Log state before cleanup
-        web_sys::console::log_1(&JsValue::from_str("Running cleanup"));
-        game.cleanup();
-        web_sys::console::log_1(&JsValue::from_str("Cleanup done"));
-        Ret{npunches: game.npunches, wif: wif}
+        game.cleanup().await;
+
+        //ret is not needed do direct DOM manipulation TODO: get rid of this
+        Ret{npunches: game.npunches, wif}
     }
 
 }
@@ -258,12 +257,8 @@ impl AudioOps {
         let audio_element = HtmlAudioElement::new().unwrap();
         let n_p = format!("{}/{}", "/src/assets", path);
         audio_element.set_src(&n_p);
-        web_sys::console::log_1(&JsValue::from_str(&n_p));
-        // Start playing the audio and await the promise
         let play_promise = JsFuture::from(audio_element.play().unwrap());
         let _ = play_promise.await;
-
-        // Create a future that resolves when the audio ends
         let (tx, rx) = oneshot::channel();
         let tx = std::rc::Rc::new(std::cell::RefCell::new(Some(tx)));
 
@@ -274,11 +269,9 @@ impl AudioOps {
         }) as Box<dyn FnMut(_)>);
 
         audio_element.set_onended(Some(closure.as_ref().unchecked_ref()));
-        closure.forget(); // Memory management handled by wasm-bindgen
+        closure.forget();
 
-        let _ = rx.await; // Wait for the audio to finish playing
-
-        // Reset the audio element state for future playbacks
+        let _ = rx.await;
         audio_element.set_onended(None);
         audio_element.set_src("");
     }
