@@ -1,22 +1,14 @@
+use ::futures::channel::oneshot;
 use rand::Rng;
 use wasm_bindgen::{closure::Closure, JsCast};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Event, HtmlAudioElement, HtmlImageElement};
-use ::futures::channel::oneshot;
-use crate::Game;
-pub fn document_get_element_by_id() -> HtmlImageElement
-{
-    let window = web_sys::window().expect("global window does not exists");    
+use web_sys::{Element, Event, HtmlAudioElement};
+pub fn document_get_element_by_id(id: &str) -> Element {
+    let window = web_sys::window().expect("global window does not exists");
     let document = window.document().expect("expecting a document on window");
-    //let body = document.body().expect("document expect to have have a body");
-    let val = document.get_element_by_id("gameImageId")
-    .unwrap()
-    .dyn_into::<web_sys::HtmlImageElement>()
-    .unwrap();
-    // web_sys::console::log_2(&"URL: %s".into(),&JsValue::from_str(&val.inner_text()));
-    return val
+    let val = document.get_element_by_id(id).expect("Element not found");
+    return val;
 }
-
 
 pub fn shuffle_array<'a, T>(array: &'a mut [T]) -> &'a mut [T] {
     let mut rng = rand::thread_rng();
@@ -27,7 +19,7 @@ pub fn shuffle_array<'a, T>(array: &'a mut [T]) -> &'a mut [T] {
     }
     array
 }
-pub fn generate_punches(min: &usize, max: &usize) -> usize{
+pub fn generate_punches(min: &usize, max: &usize) -> usize {
     rand::thread_rng().gen_range(*min..*max)
 }
 
