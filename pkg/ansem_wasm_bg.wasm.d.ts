@@ -1,8 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
-export function __wbg_game_free(a: number): void;
-export function game_render(a: number, b: number, c: number): number;
+export function render(a: number, b: number, c: number): number;
 export function __wbg_workerpool_free(a: number): void;
 export function workerpool_new(a: number): void;
 export function task_worker_entry_point(a: number, b: number): void;

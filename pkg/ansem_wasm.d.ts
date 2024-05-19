@@ -1,21 +1,16 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
-* Entry point invoked by JavaScript in a worker.
-* @param {number} ptr
-*/
-export function task_worker_entry_point(ptr: number): void;
-/**
-*/
-export class Game {
-  free(): void;
-/**
 * @param {string} player
 * @param {number} wif
 * @returns {Promise<number>}
 */
-  static render(player: string, wif: number): Promise<number>;
-}
+export function render(player: string, wif: number): Promise<number>;
+/**
+* Entry point invoked by JavaScript in a worker.
+* @param {number} ptr
+*/
+export function task_worker_entry_point(ptr: number): void;
 /**
 */
 export class WorkerPool {
@@ -39,8 +34,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly __wbg_game_free: (a: number) => void;
-  readonly game_render: (a: number, b: number, c: number) => number;
+  readonly render: (a: number, b: number, c: number) => number;
   readonly __wbg_workerpool_free: (a: number) => void;
   readonly workerpool_new: (a: number) => void;
   readonly task_worker_entry_point: (a: number, b: number) => void;

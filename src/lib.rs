@@ -2,8 +2,8 @@
 mod config;
 mod helpers;
 
-use std::time::Duration;
-
+use std::{borrow::Cow, time::Duration};
+use rand::prelude::SliceRandom;
 use crate::{
     config::PUNCHES_CONFIG,
     helpers::{document_get_element_by_id, generate_punches, shuffle_array},
@@ -17,21 +17,20 @@ use rand::Rng;
 use tokio_with_wasm::tokio::time::sleep;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlElement;
-#[wasm_bindgen]
-pub struct Game {
+pub struct Game<'a> {
     player: Characters,
     tier: PunchTiers,
     npunches: usize,
     doges: usize,
     lpunches: usize,
-    render_buf: Vec<String>,
-    temp_render_buf: Vec<String>,
+    render_buf: Cow<'a, [&'a str]>,
+    temp_render_buf: Cow<'a, [&'a str]>,
     image_ref: web_sys::HtmlImageElement,
     dodges_counter_ref: web_sys::HtmlElement,
     lpunches_counter_ref: web_sys::HtmlElement,
 }
 
-impl Game {
+impl <'a>Game<'a> {
     pub fn new(player: &str, wif: f64) -> Game {
         assert!(wif > 0.0, "WIF must be greater than 0");
 
@@ -63,48 +62,30 @@ impl Game {
             render_buf: {
                 if let PunchTiers::T3 = tier {
                     match player_e {
-                        Characters::ANSEM => PUNCHES_CONFIG[1]
-                            .image_arr_p1
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
-                        Characters::COOK => PUNCHES_CONFIG[1]
-                            .image_arr_p2
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
+                        Characters::ANSEM => Cow::Borrowed(PUNCHES_CONFIG[1]
+                            .image_arr_p1),
+                        Characters::COOK => Cow::Borrowed(PUNCHES_CONFIG[1]
+                            .image_arr_p2),
                     }
                 } else {
                     match player_e {
-                        Characters::ANSEM => punch_config
-                            .image_arr_p1
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
-                        Characters::COOK => punch_config
-                            .image_arr_p2
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
+                        Characters::ANSEM => Cow::Borrowed(punch_config
+                            .image_arr_p1),
+                        Characters::COOK => Cow::Borrowed(punch_config
+                            .image_arr_p2),
                     }
                 }
             },
             temp_render_buf: {
                 if let PunchTiers::T3 = tier {
                     match player_e {
-                        Characters::ANSEM => punch_config
-                            .image_arr_p1
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
-                        Characters::COOK => punch_config
-                            .image_arr_p2
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect(),
+                        Characters::ANSEM => Cow::Borrowed(punch_config
+                            .image_arr_p1),
+                        Characters::COOK => Cow::Borrowed(punch_config
+                            .image_arr_p2),
                     }
                 } else {
-                    vec![]
+                    Cow::Owned(Vec::new())
                 }
             },
             image_ref: document_get_element_by_id("gameImageId")
@@ -131,32 +112,20 @@ impl Game {
             match &self.player {
                 Characters::ANSEM => {
                     if rand::thread_rng().gen::<f64>() < 0.5 {
-                        self.render_buf = IMAGE_SETS
-                            .ansem_dodge_1
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect()
+                        self.render_buf = Cow::Borrowed(&IMAGE_SETS
+                            .ansem_dodge_1)
                     } else {
-                        self.render_buf = IMAGE_SETS
-                            .ansem_dodge_2
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect()
+                        self.render_buf = Cow::Borrowed(&IMAGE_SETS
+                            .ansem_dodge_2)
                     }
                 }
                 Characters::COOK => {
                     if rand::thread_rng().gen::<f64>() < 0.5 {
-                        self.render_buf = IMAGE_SETS
-                            .cook_dodge_1
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect()
+                        self.render_buf = Cow::Borrowed(&IMAGE_SETS
+                            .cook_dodge_1)
                     } else {
-                        self.render_buf = IMAGE_SETS
-                            .cook_dodge_2
-                            .into_iter()
-                            .map(|x| x.to_string())
-                            .collect()
+                        self.render_buf = Cow::Borrowed(&IMAGE_SETS
+                            .cook_dodge_2)
                     }
                 }
             }
@@ -169,10 +138,26 @@ impl Game {
     pub fn shuffle_punch_seq(&mut self) {
         let mut rng = rand::thread_rng();
         let num_punches: usize = if rng.gen::<f64>() < 0.5 { 1 } else { 2 };
-        let mut shuffled = shuffle_array(&mut self.render_buf[1..]).to_vec();
-        shuffled.truncate(num_punches);
-        self.render_buf = vec![self.render_buf[0].to_owned()];
-        self.render_buf.extend_from_slice(&shuffled);
+    
+        // Extracting the first element before borrowing mutably
+        let first_element = self.render_buf[0];
+    
+        // Borrowing mutably after immutably borrowing first element
+        let buf = self.render_buf.to_mut();
+        let buf_len = buf.len();
+        
+        let mut shuffled_indices: Vec<usize> = (1..buf_len).collect();
+        shuffled_indices.shuffle(&mut rng);
+        shuffled_indices.truncate(num_punches);
+    
+        let mut shuffled: Vec<&str> = Vec::with_capacity(num_punches);
+        for idx in shuffled_indices {
+            shuffled.push(buf[idx]);
+        }
+        
+        buf.clear();
+        buf.push(first_element); // Using the extracted first element
+        buf.extend_from_slice(&shuffled);
     }
     pub fn set_frame(&self, path: &str) {
         self.image_ref
@@ -223,7 +208,7 @@ impl Game {
 
     pub async fn render_sequence(&mut self) {
         for i in 0..self.render_buf.len() {
-            if FRAMES_TO_NOT_REV.contains(&self.render_buf[i].as_str()) {
+            if FRAMES_TO_NOT_REV.contains(&self.render_buf[i]) {
                 self.flip_frame(false);
             } else if let Characters::COOK = self.player {
                 self.flip_frame(true);
@@ -233,13 +218,13 @@ impl Game {
                 self.set_frame(&self.render_buf[i]);
             }
 
-            if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i].as_str()) {
+            if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i]) {
                 play_sound(&SOUNDS.punch).await;
                 self.increment_punch_counter();
-            } else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i].as_str()) {
+            } else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i]) {
                 play_sound(&SOUNDS.dodge).await;
                 self.increment_dodge_counter();
-            } else if PLAY_PWRUP_SOUND_AT.contains(&self.render_buf[i].as_str()) {
+            } else if PLAY_PWRUP_SOUND_AT.contains(&self.render_buf[i]) {
                 play_sound(&SOUNDS.tier3).await
             }
 
@@ -259,29 +244,27 @@ impl Game {
     }
 }
 #[wasm_bindgen]
-impl Game {
-    pub async fn render(player: &str, wif: f64) -> usize {
-        if player.is_empty() || wif <= 0.0 {
-            panic!("Invalid input parameters");
-        }
-        let mut game = Game::new(player, wif);
-        for i in 0..game.npunches {
-            if game.tier == PunchTiers::T3 && i == game.npunches - 1 {
-                game.render_buf = game.temp_render_buf.to_owned();
-                game.temp_render_buf.clear();
-            }
-            if game.render_buf != IMAGE_SETS.cook_dodge_1
-                || game.render_buf != IMAGE_SETS.cook_dodge_2
-                || game.render_buf != IMAGE_SETS.ansem_dodge_1
-                || game.render_buf != IMAGE_SETS.ansem_dodge_2
-                || game.render_buf != IMAGE_SETS.ansem_t3
-                || game.render_buf != IMAGE_SETS.cook_t3
-            {
-                game.randomize_punch_sequences();
-            }
-            game.render_sequence().await;
-        }
-        game.cleanup().await;
-        game.lpunches
+pub async fn render(player: &str, wif: f64) -> usize {
+    if player.is_empty() || wif <= 0.0 {
+        panic!("Invalid input parameters");
     }
+    let mut game = Game::new(player, wif);
+    for i in 0..game.npunches {
+        if game.tier == PunchTiers::T3 && i == game.npunches - 1 {
+            game.render_buf = game.temp_render_buf.to_owned();
+            game.temp_render_buf = Cow::Owned(Vec::new());
+        }
+        if *game.render_buf != IMAGE_SETS.cook_dodge_1
+            || *game.render_buf != IMAGE_SETS.cook_dodge_2
+            || *game.render_buf != IMAGE_SETS.ansem_dodge_1
+            || *game.render_buf != IMAGE_SETS.ansem_dodge_2
+            || *game.render_buf != IMAGE_SETS.ansem_t3
+            || *game.render_buf != IMAGE_SETS.cook_t3
+        {
+            game.randomize_punch_sequences();
+        }
+        game.render_sequence().await;
+    }
+    game.cleanup().await;
+    game.lpunches
 }

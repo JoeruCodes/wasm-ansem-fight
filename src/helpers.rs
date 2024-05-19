@@ -3,6 +3,18 @@ use rand::Rng;
 use wasm_bindgen::{closure::Closure, JsCast};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{Element, Event, HtmlAudioElement};
+#[macro_export]
+macro_rules! log {
+    ($res: expr) => {
+        match $res {
+            Ok(val) => val,
+            Err(err) => {
+                web_sys::console::error_1(&err);
+                panic!();
+            }
+        }
+    };
+}
 pub fn document_get_element_by_id(id: &str) -> Element {
     let window = web_sys::window().expect("global window does not exists");
     let document = window.document().expect("expecting a document on window");
@@ -24,10 +36,10 @@ pub fn generate_punches(min: &usize, max: &usize) -> usize {
 }
 
 pub async fn play_sound(path: &str) {
-    let audio_element = HtmlAudioElement::new().unwrap();
+    let audio_element = log!(HtmlAudioElement::new());
     let n_p = format!("{}/{}", "/src/assets", path);
     audio_element.set_src(&n_p);
-    let play_promise = JsFuture::from(audio_element.play().unwrap());
+    let play_promise = JsFuture::from(log!(audio_element.play()));
     let _ = play_promise.await;
     let (tx, rx) = oneshot::channel();
     let tx = std::rc::Rc::new(std::cell::RefCell::new(Some(tx)));
