@@ -28,6 +28,7 @@ pub struct Game<'a> {
     lpunches: usize,
     render_buf: Cow<'a, [&'static str]>,
     temp_render_buf: Cow<'a, [&'static str]>,
+    temp_t3_render_buf: Cow<'a, [&'static str]>,
     image_ref: web_sys::HtmlImageElement,
     dodges_counter_ref: web_sys::HtmlElement,
     lpunches_counter_ref: web_sys::HtmlElement,
@@ -55,45 +56,41 @@ impl <'a>Game<'a> {
             "kook" => Characters::COOK,
             _ => panic!("Invalid player name: {}", player),
         };
-
+        let render_bufs = {
+            if let PunchTiers::T3 = tier {
+                match player_e {
+                    Characters::ANSEM => Cow::Borrowed(PUNCHES_CONFIG[1]
+                        .image_arr_p1),
+                    Characters::COOK => Cow::Borrowed(PUNCHES_CONFIG[1]
+                        .image_arr_p2),
+                }
+            } else {
+                match player_e {
+                    Characters::ANSEM => Cow::Borrowed(punch_config
+                        .image_arr_p1),
+                    Characters::COOK => Cow::Borrowed(punch_config
+                        .image_arr_p2),
+                }
+            }
+        };
         Game {
             player: player_e,
             tier,
             npunches: generate_punches(&punch_config.min_punches, &punch_config.max_punches),
             doges: 0,
             lpunches: 0,
-            render_buf: {
-                if let PunchTiers::T3 = tier {
-                    match player_e {
-                        Characters::ANSEM => Cow::Borrowed(PUNCHES_CONFIG[1]
-                            .image_arr_p1),
-                        Characters::COOK => Cow::Borrowed(PUNCHES_CONFIG[1]
-                            .image_arr_p2),
-                    }
-                } else {
+            render_buf: render_bufs.clone(),
+            temp_render_buf: render_bufs.clone(),
+            temp_t3_render_buf: {
+                if let PunchTiers::T3 = &tier {
                     match player_e {
                         Characters::ANSEM => Cow::Borrowed(punch_config
                             .image_arr_p1),
                         Characters::COOK => Cow::Borrowed(punch_config
                             .image_arr_p2),
                     }
-                }
-            },
-            temp_render_buf: {
-                if let PunchTiers::T3 = tier {
-                    match player_e {
-                        Characters::ANSEM => Cow::Borrowed(punch_config
-                            .image_arr_p1),
-                        Characters::COOK => Cow::Borrowed(punch_config
-                            .image_arr_p2),
-                    }
-                } else {
-                    match player_e {
-                        Characters::ANSEM => Cow::Borrowed(PUNCHES_CONFIG[1]
-                            .image_arr_p1),
-                        Characters::COOK => Cow::Borrowed(PUNCHES_CONFIG[1]
-                            .image_arr_p2),
-                    }
+                }else{
+                    Cow::Owned(Vec::new())
                 }
             },
             image_ref: log!(document_get_element_by_id("gameImageId")
@@ -139,15 +136,7 @@ impl <'a>Game<'a> {
         }
     }
     pub fn shuffle_punch_seq(&mut self) {
-        match self.tier{
-            PunchTiers::T1 | PunchTiers::T2 => self.render_buf = self.temp_render_buf.clone(),
-            _ => self.render_buf = {
-                match self.player{
-                    Characters::ANSEM => Cow::Borrowed(&IMAGE_SETS.ansem_t2),
-                    Characters::COOK => Cow::Borrowed(&IMAGE_SETS.cook_t2)
-                }
-            }
-        }
+        self.render_buf = self.temp_render_buf.clone();
         let mut rng = rand::thread_rng();
         let num_punches: usize = if rng.gen::<f64>() < 0.5 { 1 } else { 2 };
     
@@ -251,12 +240,11 @@ impl <'a>Game<'a> {
 }
 #[wasm_bindgen]
 pub async fn render(player: &str, wif: f64) -> usize {
-    web_sys::console::assert_with_condition_and_data_1(player.is_empty() || wif <= 0.0, &JsValue::from_str("player string is empty or wif <= 0"));
     let mut game = Game::new(player, wif);
     spawn_local(play_sound(&SOUNDS.bell));
     for i in 0..game.npunches {
         if game.tier == PunchTiers::T3 && i == game.npunches - 1{
-            game.render_buf = mem::replace(&mut game.temp_render_buf, Cow::Owned(Vec::new()));
+            game.render_buf = mem::replace(&mut game.temp_t3_render_buf, Cow::Owned(Vec::new()));
         }else{
             game.randomize_punch_sequences();
         }
