@@ -143,7 +143,7 @@ impl <'a>Game<'a> {
             log!(parent.dyn_into::<HtmlElement>()).set_hidden(true);
         }
     }
-    pub async fn shake_camera(&self){
+    pub fn shake_camera(&self){
         spawn_local(shake_camera(self.image_ref.clone()));
     }
     pub fn shuffle_punch_seq(&mut self) {
@@ -193,8 +193,8 @@ impl <'a>Game<'a> {
                 }
             }
             if self.tier != PunchTiers::T3 {
+                self.shake_camera();
                 play_sound(&SOUNDS.punch).await;
-                self.shake_camera().await;
                 self.increment_punch_counter();
             }
             play_sound(&SOUNDS.win).await;
@@ -207,8 +207,8 @@ impl <'a>Game<'a> {
                     self.set_frame(IMAGE_SETS.result_cook[0]);
                 }
             }
+            self.shake_camera();
             play_sound(&SOUNDS.punch).await;
-            self.shake_camera().await;
             play_sound(&SOUNDS.lose).await;
         }
         sleep(Duration::from_millis(10)).await;
@@ -228,8 +228,8 @@ impl <'a>Game<'a> {
             }
 
             if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i]) {
+                self.shake_camera();
                 play_sound(&SOUNDS.punch).await;
-                self.shake_camera().await;
                 self.increment_punch_counter();
             } else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i]) {
                 play_sound(&SOUNDS.dodge).await;
