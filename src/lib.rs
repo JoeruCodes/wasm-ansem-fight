@@ -4,6 +4,7 @@ mod helpers;
 
 use std::{borrow::Cow, time::Duration};
 use rand::prelude::SliceRandom;
+use wasm_bindgen_futures::spawn_local;
 use crate::{
     config::PUNCHES_CONFIG,
     helpers::{document_get_element_by_id, generate_punches},
@@ -16,7 +17,7 @@ use config::{
 use std::mem;
 use helpers::play_sound;
 use rand::Rng;
-use tokio_with_wasm::tokio::time::sleep;
+use tokio_with_wasm::tokio::{spawn, time::sleep};
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlElement;
 pub struct Game<'a> {
@@ -87,7 +88,12 @@ impl <'a>Game<'a> {
                             .image_arr_p2),
                     }
                 } else {
-                    Cow::Owned(Vec::new())
+                    match player_e {
+                        Characters::ANSEM => Cow::Borrowed(PUNCHES_CONFIG[1]
+                            .image_arr_p1),
+                        Characters::COOK => Cow::Borrowed(PUNCHES_CONFIG[1]
+                            .image_arr_p2),
+                    }
                 }
             },
             image_ref: log!(document_get_element_by_id("gameImageId")
@@ -108,7 +114,6 @@ impl <'a>Game<'a> {
             }
         };
         if dodges {
-            self.temp_render_buf = mem::replace(&mut self.render_buf, Cow::Owned(Vec::new()));
             match &self.player {
                 Characters::ANSEM => {
                     if rand::thread_rng().gen::<f64>() < 0.5 {
@@ -129,13 +134,20 @@ impl <'a>Game<'a> {
                     }
                 }
             }
-        }
-
-        if self.tier == PunchTiers::T1 || self.tier == PunchTiers::T2 {
+        }else{
             self.shuffle_punch_seq();
         }
     }
     pub fn shuffle_punch_seq(&mut self) {
+        match self.tier{
+            PunchTiers::T1 | PunchTiers::T2 => self.render_buf = self.temp_render_buf.clone(),
+            _ => self.render_buf = {
+                match self.player{
+                    Characters::ANSEM => Cow::Borrowed(&IMAGE_SETS.ansem_t2),
+                    Characters::COOK => Cow::Borrowed(&IMAGE_SETS.cook_t2)
+                }
+            }
+        }
         let mut rng = rand::thread_rng();
         let num_punches: usize = if rng.gen::<f64>() < 0.5 { 1 } else { 2 };
     
@@ -239,37 +251,13 @@ impl <'a>Game<'a> {
 }
 #[wasm_bindgen]
 pub async fn render(player: &str, wif: f64) -> usize {
-    if player.is_empty() || wif <= 0.0 {
-        panic!("Invalid input parameters");
-    }
+    web_sys::console::assert_with_condition_and_data_1(player.is_empty() || wif <= 0.0, &JsValue::from_str("player string is empty or wif <= 0"));
     let mut game = Game::new(player, wif);
+    spawn_local(play_sound(&SOUNDS.bell));
     for i in 0..game.npunches {
-        // if game.tier == PunchTiers::T3 && i == game.npunches - 1 {
-        //     game.render_buf = game.temp_render_buf.to_owned();
-        //     game.temp_render_buf = Cow::Owned(Vec::new());
-        // }else if (game.tier == PunchTiers::T1 || game.tier == PunchTiers::T2) && !game.temp_render_buf.is_empty(){
-        //     game.render_buf = game.temp_render_buf;
-        //     game.temp_render_buf = Cow::Owned(Vec::new());
-        // } 
-        match &game.tier{
-            PunchTiers::T1 | PunchTiers::T2 => {
-                if !game.temp_render_buf.is_empty(){
-                    game.render_buf = mem::replace(&mut game.temp_render_buf, Cow::Owned(Vec::new()));
-                }
-            },
-            PunchTiers::T3 => {
-                if i == game.npunches - 1{
-                    game.render_buf = mem::replace(&mut game.temp_render_buf, Cow::Owned(Vec::new()));
-                }
-            }
-        }
-        if *game.render_buf != IMAGE_SETS.cook_dodge_1
-            && *game.render_buf != IMAGE_SETS.cook_dodge_2
-            && *game.render_buf != IMAGE_SETS.ansem_dodge_1
-            && *game.render_buf != IMAGE_SETS.ansem_dodge_2
-            && *game.render_buf != IMAGE_SETS.ansem_t3
-            && *game.render_buf != IMAGE_SETS.cook_t3
-        {
+        if game.tier == PunchTiers::T3 && i == game.npunches - 1{
+            game.render_buf = mem::replace(&mut game.temp_render_buf, Cow::Owned(Vec::new()));
+        }else{
             game.randomize_punch_sequences();
         }
         game.render_sequence().await;

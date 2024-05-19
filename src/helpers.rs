@@ -48,3 +48,4 @@ pub async fn play_sound(path: &str) {
     audio_element.set_onended(None);
     audio_element.set_src("");
 }
+
