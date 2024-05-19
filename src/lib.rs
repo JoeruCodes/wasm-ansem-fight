@@ -15,9 +15,9 @@ use config::{
 };
 
 use std::mem;
-use helpers::play_sound;
+use helpers::{play_sound, shake_camera};
 use rand::Rng;
-use tokio_with_wasm::tokio::{spawn, time::sleep};
+use tokio_with_wasm::tokio::time::sleep;
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlElement;
 pub struct Game<'a> {
@@ -135,6 +135,17 @@ impl <'a>Game<'a> {
             self.shuffle_punch_seq();
         }
     }
+    pub fn hide_counters(&self){
+        if let Some(parent) = self.lpunches_counter_ref.parent_element(){
+            log!(parent.dyn_into::<HtmlElement>()).set_hidden(true);
+        }
+        if let Some(parent) = self.dodges_counter_ref.parent_element(){
+            log!(parent.dyn_into::<HtmlElement>()).set_hidden(true);
+        }
+    }
+    pub async fn shake_camera(&self){
+        spawn_local(shake_camera(self.image_ref.clone()));
+    }
     pub fn shuffle_punch_seq(&mut self) {
         self.render_buf = self.temp_render_buf.clone();
         let mut rng = rand::thread_rng();
@@ -170,6 +181,7 @@ impl <'a>Game<'a> {
     }
     pub async fn cleanup(&mut self) {
         self.flip_frame(false);
+        self.hide_counters();
         let winlose = self.npunches > WIN_PUNCHES;
         if winlose {
             match &self.player {
@@ -182,6 +194,7 @@ impl <'a>Game<'a> {
             }
             if self.tier != PunchTiers::T3 {
                 play_sound(&SOUNDS.punch).await;
+                self.shake_camera().await;
                 self.increment_punch_counter();
             }
             play_sound(&SOUNDS.win).await;
@@ -195,9 +208,10 @@ impl <'a>Game<'a> {
                 }
             }
             play_sound(&SOUNDS.punch).await;
+            self.shake_camera().await;
             play_sound(&SOUNDS.lose).await;
         }
-        sleep(Duration::from_millis(50)).await;
+        sleep(Duration::from_millis(10)).await;
         self.set_frame(IMAGE_SETS.default[0]);
     }
 
@@ -215,6 +229,7 @@ impl <'a>Game<'a> {
 
             if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i]) {
                 play_sound(&SOUNDS.punch).await;
+                self.shake_camera().await;
                 self.increment_punch_counter();
             } else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i]) {
                 play_sound(&SOUNDS.dodge).await;
@@ -223,7 +238,7 @@ impl <'a>Game<'a> {
                 play_sound(&SOUNDS.tier3).await
             }
 
-            sleep(Duration::from_millis(200)).await;
+            sleep(Duration::from_millis(300)).await;
         }
     }
 
@@ -241,6 +256,8 @@ impl <'a>Game<'a> {
 #[wasm_bindgen]
 pub async fn render(player: &str, wif: f64) -> usize {
     let mut game = Game::new(player, wif);
+    game.dodges_counter_ref.set_inner_text("0");
+    game.lpunches_counter_ref.set_inner_text("0");
     spawn_local(play_sound(&SOUNDS.bell));
     for i in 0..game.npunches {
         if game.tier == PunchTiers::T3 && i == game.npunches - 1{

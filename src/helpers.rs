@@ -1,8 +1,11 @@
+use std::time::Duration;
+
 use ::futures::channel::oneshot;
 use rand::Rng;
+use tokio_with_wasm::tokio::time::sleep;
 use wasm_bindgen::{closure::Closure, JsCast};
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Element, Event, HtmlAudioElement};
+use web_sys::{Element, Event, HtmlAudioElement, HtmlElement, HtmlImageElement};
 #[macro_export]
 macro_rules! log {
     ($res: expr) => {
@@ -49,3 +52,10 @@ pub async fn play_sound(path: &str) {
     audio_element.set_src("");
 }
 
+pub async fn shake_camera(element: HtmlImageElement){
+    if let Some(parent) = element.parent_element(){
+        log!(parent.class_list().add_1("cameraShake"));
+        sleep(Duration::from_millis(13)).await;
+        log!(parent.class_list().remove_1("cameraShake"));
+    }
+}
