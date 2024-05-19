@@ -6,12 +6,14 @@ use std::{borrow::Cow, time::Duration};
 use rand::prelude::SliceRandom;
 use crate::{
     config::PUNCHES_CONFIG,
-    helpers::{document_get_element_by_id, generate_punches, shuffle_array},
+    helpers::{document_get_element_by_id, generate_punches},
 };
 use config::{
     Characters, PunchTiers, DODGE_PROBS, FRAMES_TO_NOT_REV, IMAGE_SETS, PLAY_DODGE_SOUND_AT,
     PLAY_PUNCH_SOUNDS_AT, PLAY_PWRUP_SOUND_AT, SOUNDS, WIN_PUNCHES,
 };
+
+use std::mem;
 use helpers::play_sound;
 use rand::Rng;
 use tokio_with_wasm::tokio::time::sleep;
@@ -23,8 +25,8 @@ pub struct Game<'a> {
     npunches: usize,
     doges: usize,
     lpunches: usize,
-    render_buf: Cow<'a, [&'a str]>,
-    temp_render_buf: Cow<'a, [&'a str]>,
+    render_buf: Cow<'a, [&'static str]>,
+    temp_render_buf: Cow<'a, [&'static str]>,
     image_ref: web_sys::HtmlImageElement,
     dodges_counter_ref: web_sys::HtmlElement,
     lpunches_counter_ref: web_sys::HtmlElement,
@@ -88,15 +90,12 @@ impl <'a>Game<'a> {
                     Cow::Owned(Vec::new())
                 }
             },
-            image_ref: document_get_element_by_id("gameImageId")
-                .dyn_into::<web_sys::HtmlImageElement>()
-                .expect("Not an image element"),
-            dodges_counter_ref: document_get_element_by_id("dodgesCounterId")
-                .dyn_into::<HtmlElement>()
-                .expect("Not an html element"),
-            lpunches_counter_ref: document_get_element_by_id("punchesCounterId")
-                .dyn_into::<HtmlElement>()
-                .expect("Not an element"),
+            image_ref: log!(document_get_element_by_id("gameImageId")
+                .dyn_into::<web_sys::HtmlImageElement>()),
+            dodges_counter_ref: log!(document_get_element_by_id("dodgesCounterId")
+                .dyn_into::<HtmlElement>()),
+            lpunches_counter_ref: log!(document_get_element_by_id("punchesCounterId")
+                .dyn_into::<HtmlElement>()),
         }
     }
 
@@ -109,11 +108,12 @@ impl <'a>Game<'a> {
             }
         };
         if dodges {
+            self.temp_render_buf = mem::replace(&mut self.render_buf, Cow::Owned(Vec::new()));
             match &self.player {
                 Characters::ANSEM => {
                     if rand::thread_rng().gen::<f64>() < 0.5 {
                         self.render_buf = Cow::Borrowed(&IMAGE_SETS
-                            .ansem_dodge_1)
+                            .ansem_dodge_1);
                     } else {
                         self.render_buf = Cow::Borrowed(&IMAGE_SETS
                             .ansem_dodge_2)
@@ -139,25 +139,21 @@ impl <'a>Game<'a> {
         let mut rng = rand::thread_rng();
         let num_punches: usize = if rng.gen::<f64>() < 0.5 { 1 } else { 2 };
     
-        // Extracting the first element before borrowing mutably
-        let first_element = self.render_buf[0];
+        let buf_len = self.render_buf.len();
     
-        // Borrowing mutably after immutably borrowing first element
-        let buf = self.render_buf.to_mut();
-        let buf_len = buf.len();
-        
         let mut shuffled_indices: Vec<usize> = (1..buf_len).collect();
         shuffled_indices.shuffle(&mut rng);
         shuffled_indices.truncate(num_punches);
     
         let mut shuffled: Vec<&str> = Vec::with_capacity(num_punches);
         for idx in shuffled_indices {
-            shuffled.push(buf[idx]);
+            shuffled.push(self.render_buf[idx]);
         }
-        
-        buf.clear();
-        buf.push(first_element); // Using the extracted first element
-        buf.extend_from_slice(&shuffled);
+        let mut new_buf = Vec::with_capacity(num_punches + 1);
+        new_buf.push(self.render_buf[0]);
+        new_buf.extend_from_slice(&shuffled);
+    
+        self.render_buf = Cow::Owned(new_buf);
     }
     pub fn set_frame(&self, path: &str) {
         self.image_ref
@@ -166,11 +162,9 @@ impl <'a>Game<'a> {
     pub fn flip_frame(&self, bool: bool) {
         let s = self.image_ref.style();
         if bool {
-            s.set_property("transform", "scaleX(-1)")
-                .expect("should set transform to scaleX(-1)");
+            log!(s.set_property("transform", "scaleX(-1)"))
         } else {
-            s.set_property("transform", "scaleX(1)")
-                .expect("should set transform to scaleX(1)");
+            log!(s.set_property("transform", "scaleX(1)"))
         }
     }
     pub async fn cleanup(&mut self) {
@@ -250,16 +244,31 @@ pub async fn render(player: &str, wif: f64) -> usize {
     }
     let mut game = Game::new(player, wif);
     for i in 0..game.npunches {
-        if game.tier == PunchTiers::T3 && i == game.npunches - 1 {
-            game.render_buf = game.temp_render_buf.to_owned();
-            game.temp_render_buf = Cow::Owned(Vec::new());
+        // if game.tier == PunchTiers::T3 && i == game.npunches - 1 {
+        //     game.render_buf = game.temp_render_buf.to_owned();
+        //     game.temp_render_buf = Cow::Owned(Vec::new());
+        // }else if (game.tier == PunchTiers::T1 || game.tier == PunchTiers::T2) && !game.temp_render_buf.is_empty(){
+        //     game.render_buf = game.temp_render_buf;
+        //     game.temp_render_buf = Cow::Owned(Vec::new());
+        // } 
+        match &game.tier{
+            PunchTiers::T1 | PunchTiers::T2 => {
+                if !game.temp_render_buf.is_empty(){
+                    game.render_buf = mem::replace(&mut game.temp_render_buf, Cow::Owned(Vec::new()));
+                }
+            },
+            PunchTiers::T3 => {
+                if i == game.npunches - 1{
+                    game.render_buf = mem::replace(&mut game.temp_render_buf, Cow::Owned(Vec::new()));
+                }
+            }
         }
         if *game.render_buf != IMAGE_SETS.cook_dodge_1
-            || *game.render_buf != IMAGE_SETS.cook_dodge_2
-            || *game.render_buf != IMAGE_SETS.ansem_dodge_1
-            || *game.render_buf != IMAGE_SETS.ansem_dodge_2
-            || *game.render_buf != IMAGE_SETS.ansem_t3
-            || *game.render_buf != IMAGE_SETS.cook_t3
+            && *game.render_buf != IMAGE_SETS.cook_dodge_2
+            && *game.render_buf != IMAGE_SETS.ansem_dodge_1
+            && *game.render_buf != IMAGE_SETS.ansem_dodge_2
+            && *game.render_buf != IMAGE_SETS.ansem_t3
+            && *game.render_buf != IMAGE_SETS.cook_t3
         {
             game.randomize_punch_sequences();
         }

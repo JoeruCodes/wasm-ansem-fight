@@ -22,15 +22,6 @@ pub fn document_get_element_by_id(id: &str) -> Element {
     return val;
 }
 
-pub fn shuffle_array<'a, T>(array: &'a mut [T]) -> &'a mut [T] {
-    let mut rng = rand::thread_rng();
-    let len = array.len();
-    for i in (1..len).rev() {
-        let j = rng.gen_range(0..=i);
-        array.swap(i, j);
-    }
-    array
-}
 pub fn generate_punches(min: &usize, max: &usize) -> usize {
     rand::thread_rng().gen_range(*min..*max)
 }
