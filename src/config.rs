@@ -83,7 +83,8 @@ const winImage_cook: &str = "win_cook.png";
 const cook_t3_pwrup: &str = "t33_rev.png";
 const t3_cook_win: &str = "t3_cook_win.png";
 const dodge: &str = "dodge.mp3";
-pub const FRAMES_TO_NOT_REV: [&str; 7] = [
+const uppercut_kook: &str = "uppercut_kook.png";
+pub const FRAMES_TO_NOT_REV: [&str; 8] = [
     ansem,
     cook_dodge_1,
     cook_dodge_2,
@@ -91,6 +92,7 @@ pub const FRAMES_TO_NOT_REV: [&str; 7] = [
     t3_cook_win,
     ansem_dodge_1,
     ansem_dodge_2,
+    uppercut_kook
 ];
 // Define data
 pub const IMAGE_SETS: ImageSets = ImageSets {
@@ -99,7 +101,7 @@ pub const IMAGE_SETS: ImageSets = ImageSets {
     ansem_t3: [ansemPunch, t3ansemPunch, upansemPunch],
     cook_t1: [ansemPunch, opponent_t1],
     cook_t2: [ansemPunch, opponent_t1, opponent_t2],
-    cook_t3: [ansemPunch, cook_t3_pwrup, t3_cook_win],
+    cook_t3: [ansemPunch, cook_t3_pwrup, uppercut_kook],
     cook_dodge_1: [ansemPunch, cook_dodge_1, t1ansemPunch],
     cook_dodge_2: [ansemPunch, cook_dodge_2, t2ansemPunch],
     ansem_dodge_1: [ansemPunch, ansem_dodge_1, opponent_t1],
@@ -145,10 +147,11 @@ pub const PUNCHES_CONFIG: [PunchesConfig; 3] = [
         image_arr_p2: &IMAGE_SETS.cook_t3,
     },
 ];
-pub const PLAY_PUNCH_SOUNDS_AT: [&str; 6] = [
+pub const PLAY_PUNCH_SOUNDS_AT: [&str; 7] = [
     t1ansemPunch,
     t2ansemPunch,
     upansemPunch,
+    uppercut_kook,
     opponent_t1,
     opponent_t2,
     t3_cook_win,

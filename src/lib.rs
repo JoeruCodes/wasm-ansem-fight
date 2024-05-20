@@ -80,7 +80,7 @@ impl <'a>Game<'a> {
             doges: 0,
             lpunches: 0,
             render_buf: render_bufs.clone(),
-            temp_render_buf: render_bufs.clone(),
+            temp_render_buf: render_bufs,
             temp_t3_render_buf: {
                 if let PunchTiers::T3 = &tier {
                     match player_e {
