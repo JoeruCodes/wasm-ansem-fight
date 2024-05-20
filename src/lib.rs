@@ -32,6 +32,9 @@ pub struct Game<'a> {
     image_ref: web_sys::HtmlImageElement,
     dodges_counter_ref: web_sys::HtmlElement,
     lpunches_counter_ref: web_sys::HtmlElement,
+    is_dodge: bool,
+    is_t3: bool,
+    
 }
 
 impl <'a>Game<'a> {
@@ -99,6 +102,8 @@ impl <'a>Game<'a> {
                 .dyn_into::<HtmlElement>()),
             lpunches_counter_ref: log!(document_get_element_by_id("punchesCounterId")
                 .dyn_into::<HtmlElement>()),
+            is_dodge: false,
+            is_t3: false
         }
     }
 
@@ -111,6 +116,7 @@ impl <'a>Game<'a> {
             }
         };
         if dodges {
+            self.is_dodge = true;
             match &self.player {
                 Characters::ANSEM => {
                     if rand::thread_rng().gen::<f64>() < 0.5 {
@@ -226,18 +232,20 @@ impl <'a>Game<'a> {
             if self.image_ref.src() != self.render_buf[i] {
                 self.set_frame(&self.render_buf[i]);
             }
-
-            if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i]) {
+            
+            if self.is_dodge && i==1 {
+                play_sound(&SOUNDS.dodge).await;
+                self.increment_dodge_counter();
+            }
+            
+            if self.is_t3 && i==1 {
+                play_sound(&SOUNDS.tier3).await
+            }else if !self.is_dodge && i > 0{
                 self.shake_camera();
                 play_sound(&SOUNDS.punch).await;
                 self.increment_punch_counter();
-            } else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i]) {
-                play_sound(&SOUNDS.dodge).await;
-                self.increment_dodge_counter();
-            } else if PLAY_PWRUP_SOUND_AT.contains(&self.render_buf[i]) {
-                play_sound(&SOUNDS.tier3).await
             }
-
+            self.is_dodge = false;
             sleep(Duration::from_millis(300)).await;
         }
     }
@@ -262,6 +270,7 @@ pub async fn render(player: &str, wif: f64) -> usize {
     for i in 0..game.npunches {
         if game.tier == PunchTiers::T3 && i == game.npunches - 1{
             game.render_buf = mem::replace(&mut game.temp_t3_render_buf, Cow::Owned(Vec::new()));
+            game.is_t3 = true;
         }else{
             game.randomize_punch_sequences();
         }
