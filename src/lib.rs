@@ -32,6 +32,7 @@ pub struct Game<'a> {
     image_ref: web_sys::HtmlImageElement,
     dodges_counter_ref: web_sys::HtmlElement,
     lpunches_counter_ref: web_sys::HtmlElement,
+    
 }
 
 impl <'a>Game<'a> {
@@ -169,7 +170,7 @@ impl <'a>Game<'a> {
     }
     pub fn set_frame(&self, path: &str) {
         self.image_ref
-            .set_src(&format!("{}/{}", "/src/assets", path));
+            .set_src(&format!("{}/{}", "/assets", path));
     }
     pub fn flip_frame(&self, bool: bool) {
         let s = self.image_ref.style();
