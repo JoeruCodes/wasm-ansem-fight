@@ -2,16 +2,15 @@
 mod config;
 mod helpers;
 
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, collections::HashMap, time::Duration};
 use rand::prelude::SliceRandom;
 use wasm_bindgen_futures::spawn_local;
 use crate::{
     config::PUNCHES_CONFIG,
-    helpers::{document_get_element_by_id, generate_punches},
+    helpers::{document_get_element_by_id, generate_punches, parse_mainfest},
 };
 use config::{
-    Characters, PunchTiers, DODGE_PROBS, FRAMES_TO_NOT_REV, IMAGE_SETS, PLAY_DODGE_SOUND_AT,
-    PLAY_PUNCH_SOUNDS_AT, PLAY_PWRUP_SOUND_AT, SOUNDS, WIN_PUNCHES,
+    Characters, PunchTiers, SoundTypes, DODGE_PROBS, FRAMES_TO_NOT_REV, IMAGE_SETS, PLAY_DODGE_SOUND_AT, PLAY_PUNCH_SOUNDS_AT, PLAY_PWRUP_SOUND_AT, SOUNDS, WIN_PUNCHES
 };
 
 use std::mem;
@@ -19,7 +18,13 @@ use helpers::{play_sound, shake_camera};
 use rand::Rng;
 use tokio_with_wasm::tokio::time::sleep;
 use wasm_bindgen::prelude::*;
-use web_sys::HtmlElement;
+use web_sys::{console, HtmlElement};
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ManifestEntry{
+    file: String,
+    src: String
+}
 pub struct Game<'a> {
     player: Characters,
     tier: PunchTiers,
@@ -32,10 +37,11 @@ pub struct Game<'a> {
     image_ref: web_sys::HtmlImageElement,
     dodges_counter_ref: web_sys::HtmlElement,
     lpunches_counter_ref: web_sys::HtmlElement,
+    manifest: HashMap<String, ManifestEntry>
 }
 
 impl <'a>Game<'a> {
-    pub fn new(player: &str, wif: f64) -> Game {
+    pub fn new(player: &str, wif: f64, manifest: &str) -> Game<'a> {
         assert!(wif > 0.0, "WIF must be greater than 0");
 
         let punch_config;
@@ -99,6 +105,7 @@ impl <'a>Game<'a> {
                 .dyn_into::<HtmlElement>()),
             lpunches_counter_ref: log!(document_get_element_by_id("punchesCounterId")
                 .dyn_into::<HtmlElement>()),
+            manifest: parse_mainfest(manifest)
         }
     }
 
@@ -168,8 +175,12 @@ impl <'a>Game<'a> {
         self.render_buf = Cow::Owned(new_buf);
     }
     pub fn set_frame(&self, path: &str) {
-        self.image_ref
-            .set_src(&format!("{}/{}", "/src/assets", path));
+        if let Some(img_path) = self.manifest.get(&format!("{}/{}", "/src/assets", path)){
+            self.image_ref
+            .set_src(&img_path.file);
+        }else{
+            console::error_1(&JsValue::from_str("path not found in the mainfest"));
+        }
     }
     pub fn flip_frame(&self, bool: bool) {
         let s = self.image_ref.style();
@@ -194,10 +205,10 @@ impl <'a>Game<'a> {
             }
             if self.tier != PunchTiers::T3 {
                 self.shake_camera();
-                play_sound(&SOUNDS.punch).await;
+                play_sound(SOUNDS.punch.to_owned(), self.manifest.clone()).await;
                 self.increment_punch_counter();
             }
-            play_sound(&SOUNDS.win).await;
+            play_sound(SOUNDS.win.to_owned(), self.manifest.clone()).await;
         } else {
             match &self.player {
                 Characters::ANSEM => {
@@ -208,8 +219,8 @@ impl <'a>Game<'a> {
                 }
             }
             self.shake_camera();
-            play_sound(&SOUNDS.punch).await;
-            play_sound(&SOUNDS.lose).await;
+            play_sound(SOUNDS.punch.to_string(), self.manifest.clone()).await;
+            play_sound(SOUNDS.lose.to_string(), self.manifest.clone()).await;
         }
         sleep(Duration::from_millis(10)).await;
         self.set_frame(IMAGE_SETS.default[0]);
@@ -229,13 +240,13 @@ impl <'a>Game<'a> {
 
             if PLAY_PUNCH_SOUNDS_AT.contains(&self.render_buf[i]) {
                 self.shake_camera();
-                play_sound(&SOUNDS.punch).await;
+                play_sound(SOUNDS.punch.to_owned(), self.manifest.clone()).await;
                 self.increment_punch_counter();
             } else if PLAY_DODGE_SOUND_AT.contains(&self.render_buf[i]) {
-                play_sound(&SOUNDS.dodge).await;
+                play_sound(SOUNDS.dodge.to_owned(), self.manifest.clone()).await;
                 self.increment_dodge_counter();
             } else if PLAY_PWRUP_SOUND_AT.contains(&self.render_buf[i]) {
-                play_sound(&SOUNDS.tier3).await
+                play_sound(SOUNDS.tier3.to_owned(), self.manifest.clone()).await
             }
 
             sleep(Duration::from_millis(300)).await;
@@ -252,13 +263,14 @@ impl <'a>Game<'a> {
         self.lpunches_counter_ref
             .set_inner_text(&self.lpunches.to_string());
     }
+    
 }
 #[wasm_bindgen]
-pub async fn render(player: &str, wif: f64) -> usize {
-    let mut game = Game::new(player, wif);
+pub async fn render(player: &str, wif: f64, mainfest: &str) -> usize {
+    let mut game = Game::new(player, wif, mainfest);
     game.dodges_counter_ref.set_inner_text("0");
     game.lpunches_counter_ref.set_inner_text("0");
-    spawn_local(play_sound(&SOUNDS.bell));
+    spawn_local(play_sound(SOUNDS.bell.to_string(), game.manifest.clone()));
     for i in 0..game.npunches {
         if game.tier == PunchTiers::T3 && i == game.npunches - 1{
             game.render_buf = mem::replace(&mut game.temp_t3_render_buf, Cow::Owned(Vec::new()));
